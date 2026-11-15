@@ -151,19 +151,23 @@ class ScreenShareService : LifecycleService() {
         val factory = Rtc.factory(this)
         val sessionRef = Backend.session(device, session)
 
-        capturer = ScreenCapturerAndroid(data, object : MediaProjection.Callback() {
+        val cap = ScreenCapturerAndroid(data, object : MediaProjection.Callback() {
             override fun onStop() {
                 // z. B. über den Statusleisten-Chip beendet
                 lifecycleScope.launch(Dispatchers.Main) { shutdown(notifyRemote = true) }
             }
         })
-        surfaceHelper = SurfaceTextureHelper.create("ScreenCapture", Rtc.egl.eglBaseContext)
-        source = factory.createVideoSource(true)
-        capturer!!.initialize(surfaceHelper, this, source!!.capturerObserver)
+        capturer = cap
+        val texHelper = SurfaceTextureHelper.create("ScreenCapture", Rtc.egl.eglBaseContext)
+        surfaceHelper = texHelper
+        val videoSource = factory.createVideoSource(true)
+        source = videoSource
+        cap.initialize(texHelper, this, videoSource.capturerObserver)
         captureSize = computeCaptureSize()
-        capturer!!.startCapture(captureSize.first, captureSize.second, 30)
+        cap.startCapture(captureSize.first, captureSize.second, 30)
         getSystemService(DisplayManager::class.java).registerDisplayListener(displayListener, null)
-        track = factory.createVideoTrack("screen", source)
+        val videoTrack = factory.createVideoTrack("screen", videoSource)
+        track = videoTrack
 
         val peer = factory.createPeerConnection(Rtc.rtcConfig(), object : PcObserver() {
             override fun onIceCandidate(candidate: IceCandidate?) {
@@ -177,7 +181,7 @@ class ScreenShareService : LifecycleService() {
         }) ?: error("PeerConnection konnte nicht erstellt werden")
         pc = peer
 
-        val sender = peer.addTrack(track, listOf("screen"))
+        val sender = peer.addTrack(videoTrack, listOf("screen"))
         // Lieber scharfe Schrift als flüssige Bewegung.
         runCatching {
             val params = sender.parameters

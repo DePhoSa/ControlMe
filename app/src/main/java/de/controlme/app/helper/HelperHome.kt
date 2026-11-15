@@ -87,7 +87,12 @@ fun HelperNameScreen(onSave: (String) -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HelperHome(helperName: String, onConnect: (RemoteDevice, String) -> Unit, onResetRole: () -> Unit) {
+fun HelperHome(
+    helperName: String,
+    onConnect: (RemoteDevice, String) -> Unit,
+    onResetRole: () -> Unit,
+    onSwitchToClient: () -> Unit,
+) {
     val ctx = LocalContext.current
     val prefs = remember { Prefs(ctx) }
     val scope = rememberCoroutineScope()
@@ -107,6 +112,10 @@ fun HelperHome(helperName: String, onConnect: (RemoteDevice, String) -> Unit, on
                 actions = {
                     IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, "Menü") }
                     DropdownMenu(menu, { menu = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Selbst Hilfe bekommen") },
+                            onClick = { menu = false; onSwitchToClient() },
+                        )
                         DropdownMenuItem(text = { Text("App zurücksetzen") }, onClick = { menu = false; onResetRole() })
                     }
                 },

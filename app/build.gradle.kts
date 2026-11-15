@@ -67,6 +67,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.service)
     implementation(libs.androidx.datastore)
+    implementation(libs.androidx.fragment) // hebt eine alte transitive Version an
 
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)

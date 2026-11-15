@@ -19,6 +19,9 @@ android {
         versionCode = (prop("VERSION_CODE").ifBlank { "1" }).toInt()
         versionName = prop("VERSION_NAME").ifBlank { "1.0" }
 
+        // Pixel 8 und neuer sind reine 64-Bit-ARM-Geräte – spart ca. 75 % APK-Größe
+        ndk { abiFilters += "arm64-v8a" }
+
         // Optionaler eigener TURN-Server (nur nötig, wenn Verbindungen über Mobilfunk scheitern)
         buildConfigField("String", "TURN_URL", "\"${prop("TURN_URL")}\"")
         buildConfigField("String", "TURN_USER", "\"${prop("TURN_USER")}\"")

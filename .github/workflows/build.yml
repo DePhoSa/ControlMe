@@ -64,13 +64,37 @@ jobs:
           VERSION_NAME: 1.0.${{ github.run_number }}
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon assembleRelease
+          ./gradlew --no-daemon assembleRelease bundleRelease
           cp app/build/outputs/apk/release/app-release.apk Fernhilfe.apk
+          cp app/build/outputs/bundle/release/app-release.aab Fernhilfe.aab
 
       - uses: actions/upload-artifact@v4
         with:
           name: Fernhilfe-APK
           path: Fernhilfe.apk
+
+      # App-Bundle für den Play Store (das erste Mal von Hand in der Play Console hochladen)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Fernhilfe-AAB
+          path: Fernhilfe.aab
+
+      - name: Play-Zugang prüfen
+        env:
+          PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -n "$PLAY_JSON" ]; then echo "HAS_PLAY=true" >> "$GITHUB_ENV"; fi
+
+      # Automatisch in den internen Test des Play Stores hochladen
+      - name: In Play Store (interner Test) hochladen
+        if: env.HAS_PLAY == 'true' && env.HAS_FIREBASE == 'true' && github.ref == 'refs/heads/main'
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: de.controlme.app
+          releaseFiles: Fernhilfe.aab
+          track: internal
+          status: completed
 
       # Fertige APK als "Release" veröffentlichen – Download direkt am Handy möglich.
       - name: Release veröffentlichen

@@ -48,12 +48,14 @@ class CaptureActivity : ComponentActivity() {
         private const val EXTRA_DEVICE = "device"
         private const val EXTRA_SESSION = "session"
         private const val EXTRA_HELPER = "helper"
+        private const val EXTRA_HELPER_UID = "helper_uid"
 
-        fun intent(ctx: Context, deviceId: String, sessionId: String, helperName: String) =
+        fun intent(ctx: Context, deviceId: String, sessionId: String, helperUid: String, helperName: String) =
             Intent(ctx, CaptureActivity::class.java)
                 .putExtra(EXTRA_DEVICE, deviceId)
                 .putExtra(EXTRA_SESSION, sessionId)
                 .putExtra(EXTRA_HELPER, helperName)
+                .putExtra(EXTRA_HELPER_UID, helperUid)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION)
     }
 
@@ -87,7 +89,8 @@ class CaptureActivity : ComponentActivity() {
 
         if (savedInstanceState != null) return
         lifecycleScope.launch {
-            if (Prefs(this@CaptureActivity).autoAcceptNow()) {
+            val helperUid = intent.getStringExtra(EXTRA_HELPER_UID)
+            if (!Prefs(this@CaptureActivity).mustAsk(helperUid)) {
                 requestProjection()
             } else {
                 setContent {

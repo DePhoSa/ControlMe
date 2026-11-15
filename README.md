@@ -17,6 +17,8 @@ Eine kleine, kostenlose Fernwartungs-App für Android 14+ (Pixel 8 und neuer), g
 
 Ablauf einer Sitzung: Du tippst auf „Verbinden“. Das Handy deiner Mutter bekommt die Anfrage über Firestore (die App wartet dort dauerhaft im Hintergrund) und öffnet selbst den Android-Dialog „Bildschirm teilen“. Den tippt die App nach Möglichkeit auch selbst an (siehe unten). Danach siehst du den Bildschirm und kannst steuern: tippen, lange drücken, wischen, Zurück/Home/Apps/Benachrichtigungen und Text eingeben.
 
+**Familie oder Freund:** Direkt nach dem Koppeln fragt das Handy einmal, wie der neue Helfer helfen darf. Bei **„Ohne Nachfrage (Familie)“** startet die Hilfe sofort. Bei **„Jedes Mal fragen (Freund)“** erscheint vor jeder Verbindung ein großer „Ja/Nein“-Bildschirm. Ändern oder Helfer entfernen lässt sich das jederzeit über das Zahnrad.
+
 Deine Mutter sieht während der Hilfe eine Benachrichtigung „Sascha sieht deinen Bildschirm“ mit **Beenden**-Knopf. Außerdem zeigt Android den Chip für die Bildschirmfreigabe in der Statusleiste.
 
 ## Einmalige Einrichtung (ca. 15 Minuten, alles kostenlos)

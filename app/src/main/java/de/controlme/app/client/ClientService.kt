@@ -19,7 +19,9 @@ import com.google.firebase.firestore.ListenerRegistration
 import de.controlme.app.MainActivity
 import de.controlme.app.R
 import de.controlme.app.core.Backend
+import de.controlme.app.core.HELPER_PENDING
 import de.controlme.app.core.Notifications
+import de.controlme.app.core.Prefs
 import de.controlme.app.core.SessionState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -181,7 +183,9 @@ class ClientService : LifecycleService() {
                             ).await()
                             Backend.pairCode(current.code).delete().await()
                             _pairCode.value = null
-                            infoNotification("$name kann dir jetzt helfen.")
+                            // Auswahl "Familie oder Freund" erscheint in der App
+                            Prefs(this@ClientService).setHelperMode(helperUid, HELPER_PENDING)
+                            infoNotification("$name ist jetzt verbunden.")
                         }.onFailure { Log.w(TAG, "pair", it) }
                     }
                     runCatching { doc.reference.delete().await() }
@@ -208,13 +212,13 @@ class ClientService : LifecycleService() {
                     val helperName = _helpers.value[helperUid]
                         ?: doc.getString("helperName")?.take(40)
                         ?: "Helfer"
-                    onHelpRequested(uid, doc.id, helperName)
+                    onHelpRequested(uid, doc.id, helperUid, helperName)
                 }
             }
     }
 
-    private fun onHelpRequested(deviceId: String, sessionId: String, helperName: String) {
-        val intent = CaptureActivity.intent(this, deviceId, sessionId, helperName)
+    private fun onHelpRequested(deviceId: String, sessionId: String, helperUid: String, helperName: String) {
+        val intent = CaptureActivity.intent(this, deviceId, sessionId, helperUid, helperName)
         // Dank aktiver Bedienungshilfe darf die App direkt in den Vordergrund.
         runCatching { startActivity(intent) }
         lifecycleScope.launch {

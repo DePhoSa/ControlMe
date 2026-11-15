@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.automirrored.rounded.ScreenShare
+import androidx.compose.material.icons.rounded.PersonRemove
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -52,7 +53,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LifecycleResumeEffect
+import com.google.firebase.firestore.FieldValue
+import de.controlme.app.core.Backend
+import de.controlme.app.core.HELPER_FAMILY
+import de.controlme.app.core.HELPER_FRIEND
+import de.controlme.app.core.HELPER_PENDING
 import de.controlme.app.core.Prefs
+import kotlinx.coroutines.tasks.await
 import de.controlme.app.ui.BigButton
 import de.controlme.app.ui.SuccessGreen
 import kotlinx.coroutines.launch
@@ -79,6 +86,9 @@ fun ClientHome(onResetRole: () -> Unit, onSwitchToHelper: () -> Unit) {
     val active by ScreenShareService.activeHelper.collectAsState()
     var showSettings by remember { mutableStateOf(false) }
     var showCode by remember { mutableStateOf(false) }
+    val prefs = remember { Prefs(ctx) }
+    val scope = rememberCoroutineScope()
+    val modes by prefs.helperModes.collectAsState(initial = emptyMap())
 
     Box(Modifier.fillMaxSize().safeDrawingPadding()) {
         Column(
@@ -113,7 +123,16 @@ fun ClientHome(onResetRole: () -> Unit, onSwitchToHelper: () -> Unit) {
         ) { Icon(Icons.Rounded.Settings, "Einstellungen", tint = MaterialTheme.colorScheme.outline) }
     }
 
+    // Neu gekoppelter Helfer: Familie oder Freund?
+    val pendingUid = helpers.keys.firstOrNull { modes[it] == HELPER_PENDING }
+    if (pendingUid != null) HelperModeDialog(helpers[pendingUid] ?: "Helfer") { mode ->
+        scope.launch { prefs.setHelperMode(pendingUid, mode) }
+        showCode = false
+    }
+
     if (showSettings) ClientSettings(
+        helpers = helpers,
+        modes = modes,
         onDismiss = { showSettings = false },
         onAddHelper = { showSettings = false; showCode = true; ClientService.requestNewPairCode(ctx) },
         onResetRole = onResetRole,
@@ -263,6 +282,8 @@ private fun Step(
 
 @Composable
 private fun ClientSettings(
+    helpers: Map<String, String>,
+    modes: Map<String, String>,
     onDismiss: () -> Unit,
     onAddHelper: () -> Unit,
     onResetRole: () -> Unit,
@@ -275,16 +296,41 @@ private fun ClientSettings(
     val autoConfirm by prefs.autoConfirm.collectAsState(initial = true)
     var confirmReset by remember { mutableStateOf(false) }
     var confirmSwitch by remember { mutableStateOf(false) }
+    var confirmRemove by remember { mutableStateOf<Pair<String, String>?>(null) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = onDismiss) { Text("Schließen") } },
         title = { Text("Einstellungen") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (helpers.isNotEmpty()) {
+                    Text("Deine Helfer", style = MaterialTheme.typography.titleSmall)
+                    helpers.forEach { (uid, name) ->
+                        val friend = modes[uid] == HELPER_FRIEND || modes[uid] == HELPER_PENDING
+                        ListItem(
+                            headlineContent = { Text(name) },
+                            supportingContent = { Text(if (friend) "Fragt jedes Mal vorher (Freund)" else "Darf ohne Nachfrage helfen (Familie)") },
+                            trailingContent = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Switch(friend, { scope.launch { prefs.setHelperMode(uid, if (it) HELPER_FRIEND else HELPER_FAMILY) } })
+                                    IconButton(onClick = { confirmRemove = uid to name }) {
+                                        Icon(Icons.Rounded.PersonRemove, "Entfernen")
+                                    }
+                                }
+                            },
+                        )
+                    }
+                    Text(
+                        "Schalter an = vorher fragen.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    HorizontalDivider()
+                }
                 ListItem(
-                    headlineContent = { Text("Vor dem Verbinden fragen") },
-                    supportingContent = { Text("Zeigt „Ja/Nein“, bevor jemand zuschauen darf.") },
+                    headlineContent = { Text("Bei allen vorher fragen") },
+                    supportingContent = { Text("Zeigt immer „Ja/Nein“, bevor jemand zuschauen darf.") },
                     trailingContent = { Switch(!autoAccept, { scope.launch { prefs.setAutoAccept(!it) } }) },
                 )
                 ListItem(
@@ -308,6 +354,28 @@ private fun ClientSettings(
         confirmButton = { TextButton(onClick = { confirmReset = false; onDismiss(); onResetRole() }) { Text("Zurücksetzen") } },
         dismissButton = { TextButton(onClick = { confirmReset = false }) { Text("Abbrechen") } },
     )
+    confirmRemove?.let { (uid, name) ->
+        AlertDialog(
+            onDismissRequest = { confirmRemove = null },
+            title = { Text("$name entfernen?") },
+            text = { Text("$name kann dir dann nicht mehr helfen, bis ihr euch neu koppelt.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmRemove = null
+                    scope.launch {
+                        runCatching {
+                            val me = Backend.ensureSignedIn()
+                            Backend.device(me).update(
+                                mapOf("admins" to FieldValue.arrayRemove(uid), "adminNames.$uid" to FieldValue.delete())
+                            ).await()
+                        }
+                        prefs.setHelperMode(uid, null)
+                    }
+                }) { Text("Entfernen", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { confirmRemove = null }) { Text("Abbrechen") } },
+        )
+    }
     if (confirmSwitch) AlertDialog(
         onDismissRequest = { confirmSwitch = false },
         title = { Text("Selbst jemandem helfen?") },
@@ -319,5 +387,30 @@ private fun ClientSettings(
         },
         confirmButton = { TextButton(onClick = { confirmSwitch = false; onSwitchToHelper() }) { Text("Wechseln") } },
         dismissButton = { TextButton(onClick = { confirmSwitch = false }) { Text("Abbrechen") } },
+    )
+}
+
+/** Nach dem Koppeln: Darf dieser Helfer ohne Nachfrage helfen? */
+@Composable
+private fun HelperModeDialog(name: String, onPick: (String) -> Unit) {
+    AlertDialog(
+        onDismissRequest = {},
+        title = { Text("$name ist jetzt verbunden", textAlign = TextAlign.Center) },
+        text = {
+            Column {
+                Text("Wie soll $name dir helfen dürfen?", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(20.dp))
+                BigButton("Ohne Nachfrage\n(Familie)", { onPick(HELPER_FAMILY) }, Modifier.fillMaxWidth())
+                Spacer(Modifier.height(12.dp))
+                BigButton("Jedes Mal fragen\n(Freund)", { onPick(HELPER_FRIEND) }, Modifier.fillMaxWidth(), secondary = true)
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    "Das lässt sich später in den Einstellungen ändern.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {},
     )
 }

@@ -12,6 +12,10 @@ import org.json.JSONObject
 
 enum class Role { CLIENT, HELPER }
 
+const val HELPER_FAMILY = "family"
+const val HELPER_FRIEND = "friend"
+const val HELPER_PENDING = "pending"
+
 private val Context.store by preferencesDataStore("controlme")
 
 /** Kleine lokale Einstellungen. */
@@ -23,6 +27,7 @@ class Prefs(private val context: Context) {
         val autoAccept = booleanPreferencesKey("auto_accept")
         val autoConfirm = booleanPreferencesKey("auto_confirm")
         val keepClient = booleanPreferencesKey("keep_client")
+        val helperModes = stringPreferencesKey("helper_modes")
     }
 
     val role: Flow<Role?> = context.store.data.map { p -> p[K.role]?.let { runCatching { Role.valueOf(it) }.getOrNull() } }
@@ -33,6 +38,25 @@ class Prefs(private val context: Context) {
 
     /** Bleibt dieses Handy für seine Helfer erreichbar, obwohl gerade der Helfer-Modus aktiv ist? */
     val keepClient: Flow<Boolean> = context.store.data.map { it[K.keepClient] ?: false }
+
+    /**
+     * Wie darf ein Helfer verbinden? uid -> "family" (ohne Nachfrage) oder "friend" (jedes Mal fragen)
+     * oder "pending" (gerade gekoppelt, Auswahl steht noch aus). Kein Eintrag = family.
+     */
+    val helperModes: Flow<Map<String, String>> = context.store.data.map { p -> parseMap(p[K.helperModes]) }
+
+    suspend fun setHelperMode(helperUid: String, mode: String?) = edit {
+        val m = parseMap(it[K.helperModes]).toMutableMap()
+        if (mode == null) m.remove(helperUid) else m[helperUid] = mode
+        it[K.helperModes] = JSONObject(m as Map<*, *>).toString()
+    }
+
+    /** Muss vor dem Verbinden mit diesem Helfer nachgefragt werden? */
+    suspend fun mustAsk(helperUid: String?): Boolean {
+        if (!autoAccept.first()) return true
+        val mode = helperUid?.let { helperModes.first()[it] }
+        return mode == HELPER_FRIEND || mode == HELPER_PENDING
+    }
 
     suspend fun setRole(role: Role?) = edit { if (role == null) it.remove(K.role) else it[K.role] = role.name }
     suspend fun setHelperName(name: String) = edit { it[K.helperName] = name.trim() }

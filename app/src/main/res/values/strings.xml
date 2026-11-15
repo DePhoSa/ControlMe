@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Fernhilfe</string>
+    <string name="a11y_summary">Erlaubt deinem Familienmitglied, für dich zu tippen</string>
+    <string name="a11y_description">Wenn du Hilfe bekommst, kann dein gekoppeltes Familienmitglied über diese Funktion auf deinem Bildschirm tippen, wischen und Text eingeben. Das geht nur, solange du deinen Bildschirm teilst – du siehst das immer an der Benachrichtigung und kannst jederzeit beenden.</string>
+</resources>

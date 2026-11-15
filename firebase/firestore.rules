@@ -1,0 +1,53 @@
+rules_version = '2';
+// Sicherheitsregeln für die Fernhilfe-App.
+// In der Firebase-Konsole unter Firestore > Regeln einfügen und veröffentlichen.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function isDevice(deviceId) { return signedIn() && request.auth.uid == deviceId; }
+    function isAdmin(deviceId) {
+      return signedIn() &&
+        request.auth.uid in get(/databases/$(database)/documents/devices/$(deviceId)).data.admins;
+    }
+
+    // Kopplungs-Codes: nur gezielt abrufbar (kein Auflisten = kein Durchprobieren der Liste)
+    match /pairCodes/{code} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn() && request.resource.data.deviceId == request.auth.uid;
+      allow update, delete: if signedIn() && resource.data.deviceId == request.auth.uid
+                            && (request.method == 'delete' || request.resource.data.deviceId == request.auth.uid);
+    }
+
+    match /devices/{deviceId} {
+      allow read: if isDevice(deviceId) || (signedIn() && request.auth.uid in resource.data.admins);
+      allow create, update: if isDevice(deviceId);
+      // Helfer dürfen sich selbst wieder austragen
+      allow update: if signedIn()
+        && request.auth.uid in resource.data.admins
+        && !(request.auth.uid in request.resource.data.admins)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['admins', 'adminNames']);
+      allow delete: if isDevice(deviceId);
+
+      // Kopplungs-Anfrage: jeder Helfer nur unter seiner eigenen uid
+      match /claims/{helperUid} {
+        allow create: if signedIn() && request.auth.uid == helperUid
+                      && request.resource.data.code is string
+                      && request.resource.data.code.size() == 6;
+        allow read, delete: if isDevice(deviceId);
+      }
+
+      // Sitzungen: nur gekoppelte Helfer dürfen anfragen
+      match /sessions/{sessionId} {
+        allow create: if isAdmin(deviceId) && request.resource.data.helperUid == request.auth.uid;
+        allow read, update: if isDevice(deviceId) || isAdmin(deviceId);
+
+        match /{iceCollection}/{iceId} {
+          allow read, create: if (isDevice(deviceId) || isAdmin(deviceId))
+                              && iceCollection in ['clientIce', 'helperIce'];
+        }
+      }
+    }
+  }
+}

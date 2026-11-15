@@ -113,6 +113,10 @@ fun HelperHome(
                     IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, "Menü") }
                     DropdownMenu(menu, { menu = false }) {
                         DropdownMenuItem(
+                            text = { Text("Einladung teilen (z. B. WhatsApp)") },
+                            onClick = { menu = false; shareInvite(ctx) },
+                        )
+                        DropdownMenuItem(
                             text = { Text("Selbst Hilfe bekommen") },
                             onClick = { menu = false; onSwitchToClient() },
                         )
@@ -271,5 +275,23 @@ private fun PairDialog(helperName: String, onDismiss: () -> Unit) {
             TextButton(onClick = { trigger++ }, enabled = code.length == 6 && !busy) { Text("Koppeln") }
         },
         dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text("Abbrechen") } },
+    )
+}
+
+/** Play-Store-Link für den internen Test. Funktioniert nur für eingetragene Tester. */
+private const val INVITE_LINK = "https://play.google.com/apps/internaltest/4700897120132257250"
+
+/** Öffnet das Android-Teilen-Menü (WhatsApp, SMS, E-Mail …) mit dem Einladungslink. */
+private fun shareInvite(ctx: android.content.Context) {
+    val text = "Hallo! Ich lade dich zu „Fernhilfe“ ein – damit kann ich dir am Handy aus der Ferne helfen.\n\n" +
+        "1. Diesen Link öffnen und „Tester werden“ antippen:\n$INVITE_LINK\n" +
+        "2. Danach über den Link „Bei Google Play herunterladen“ die App installieren.\n\n" +
+        "Wichtig: Am Handy muss das Google-Konto angemeldet sein, das ich dir genannt habe."
+    val send = android.content.Intent(android.content.Intent.ACTION_SEND)
+        .setType("text/plain")
+        .putExtra(android.content.Intent.EXTRA_TEXT, text)
+    ctx.startActivity(
+        android.content.Intent.createChooser(send, "Einladung teilen")
+            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
     )
 }

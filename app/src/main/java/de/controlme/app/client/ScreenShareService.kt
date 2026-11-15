@@ -87,6 +87,10 @@ class ScreenShareService : LifecycleService() {
     private var disconnectJob: Job? = null
     private var stopped = false
     private var captureSize = 0 to 0
+    // ICE-Kandidaten des Helfers können vor seiner Antwort eintreffen – so lange zwischenspeichern
+    private val pendingIce = mutableListOf<IceCandidate>()
+    private var remoteReady = false
+    private var answerApplied = false
 
     private val displayListener = object : DisplayManager.DisplayListener {
         override fun onDisplayAdded(displayId: Int) {}
@@ -118,6 +122,9 @@ class ScreenShareService : LifecycleService() {
         // Eine neue Sitzung ersetzt eine eventuell noch laufende.
         if (sessionId != null) cleanup(notifyRemote = true, stopService = false)
         stopped = false
+        pendingIce.clear()
+        remoteReady = false
+        answerApplied = false
         sessionId = session
         deviceId = device
         // Android 14+: zuerst als mediaProjection-Dienst in den Vordergrund, dann aufnehmen.
@@ -217,13 +224,22 @@ class ScreenShareService : LifecycleService() {
                 return@addSnapshotListener
             }
             val answer = Rtc.sdpFromMap(snap.get("answer") as? Map<*, *>)
-            if (answer != null && peer.remoteDescription == null) {
-                lifecycleScope.launch { runCatching { peer.setRemoteAsync(answer) } }
+            if (answer != null && !answerApplied) {
+                answerApplied = true
+                lifecycleScope.launch {
+                    runCatching { peer.setRemoteAsync(answer) }
+                    // Kandidaten, die vor der Antwort ankamen, jetzt nachreichen
+                    remoteReady = true
+                    pendingIce.forEach { peer.addIceCandidate(it) }
+                    pendingIce.clear()
+                }
             }
         }
         registrations += sessionRef.collection("helperIce").addSnapshotListener { snap, _ ->
             snap?.documentChanges?.filter { it.type == DocumentChange.Type.ADDED }?.forEach {
-                Rtc.iceFromMap(it.document.data)?.let { c -> peer.addIceCandidate(c) }
+                Rtc.iceFromMap(it.document.data)?.let { c ->
+                    if (remoteReady) peer.addIceCandidate(c) else pendingIce += c
+                }
             }
         }
         // Wenn der Helfer nicht innerhalb einer Minute verbindet: aufräumen.

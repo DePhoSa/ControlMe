@@ -200,13 +200,14 @@ class ClientService : LifecycleService() {
                     if (!handledSessions.add(doc.id)) return@forEach
                     val createdAt = doc.getLong("createdAt") ?: 0L
                     val helperUid = doc.getString("helperUid") ?: return@forEach
-                    if (System.currentTimeMillis() - createdAt > Backend.SESSION_REQUEST_VALIDITY_MS ||
-                        helperUid !in _helpers.value.keys
-                    ) {
+                    // Dass nur gekoppelte Helfer anfragen dürfen, prüfen die Firestore-Regeln.
+                    if (System.currentTimeMillis() - createdAt > Backend.SESSION_REQUEST_VALIDITY_MS) {
                         doc.reference.update("state", SessionState.ENDED)
                         return@forEach
                     }
-                    val helperName = _helpers.value[helperUid] ?: "Helfer"
+                    val helperName = _helpers.value[helperUid]
+                        ?: doc.getString("helperName")?.take(40)
+                        ?: "Helfer"
                     onHelpRequested(uid, doc.id, helperName)
                 }
             }

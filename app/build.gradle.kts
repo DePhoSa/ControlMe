@@ -34,7 +34,7 @@ android {
                 keyAlias = prop("KEY_ALIAS")
                 keyPassword = prop("KEY_PASSWORD")
             } else {
-                // Fallback: Debug-Schlüssel (nur zum Testen – Updates klappen dann nicht zuverlässig)
+                // Lokal ohne eigenen Schlüssel: Debug-Schlüssel von Android Studio verwenden
                 initWith(getByName("debug"))
             }
         }

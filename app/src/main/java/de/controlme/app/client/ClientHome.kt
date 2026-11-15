@@ -21,7 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.CloudOff
-import androidx.compose.material.icons.rounded.ScreenShare
+import androidx.compose.material.icons.automirrored.rounded.ScreenShare
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -145,7 +145,7 @@ private fun Ready(helpers: List<String>, online: Boolean) {
 @Composable
 private fun ActiveSession(helper: String, onStop: () -> Unit) {
     Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer) {
-        Icon(Icons.Rounded.ScreenShare, null, Modifier.padding(32.dp).size(96.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+        Icon(Icons.AutoMirrored.Rounded.ScreenShare, null, Modifier.padding(32.dp).size(96.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
     }
     Spacer(Modifier.height(32.dp))
     Text("$helper hilft dir gerade", style = MaterialTheme.typography.displaySmall, textAlign = TextAlign.Center)

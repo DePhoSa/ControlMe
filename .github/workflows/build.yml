@@ -40,13 +40,23 @@ jobs:
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
             echo "KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+          else
+            echo "::warning::Secret KEYSTORE_BASE64 fehlt – signiere mit Wegwerf-Schlüssel (Updates überschreiben dann nicht)."
+            keytool -genkeypair -keystore "$RUNNER_TEMP/temp.jks" -alias temp -keyalg RSA -keysize 2048 \
+              -validity 3650 -storepass temppass -keypass temppass -dname "CN=Fernhilfe Test"
+            {
+              echo "KEYSTORE_FILE=$RUNNER_TEMP/temp.jks"
+              echo "KEYSTORE_PASSWORD=temppass"
+              echo "KEY_ALIAS=temp"
+              echo "KEY_PASSWORD=temppass"
+            } >> "$GITHUB_ENV"
           fi
 
       - name: APK bauen
         env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || env.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS || env.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || env.KEY_PASSWORD }}
           TURN_URL: ${{ secrets.TURN_URL }}
           TURN_USER: ${{ secrets.TURN_USER }}
           TURN_PASS: ${{ secrets.TURN_PASS }}

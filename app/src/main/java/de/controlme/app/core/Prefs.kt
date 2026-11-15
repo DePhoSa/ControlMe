@@ -22,6 +22,7 @@ class Prefs(private val context: Context) {
         val nicknames = stringPreferencesKey("nicknames")
         val autoAccept = booleanPreferencesKey("auto_accept")
         val autoConfirm = booleanPreferencesKey("auto_confirm")
+        val keepClient = booleanPreferencesKey("keep_client")
     }
 
     val role: Flow<Role?> = context.store.data.map { p -> p[K.role]?.let { runCatching { Role.valueOf(it) }.getOrNull() } }
@@ -30,10 +31,14 @@ class Prefs(private val context: Context) {
     val autoConfirm: Flow<Boolean> = context.store.data.map { it[K.autoConfirm] ?: true }
     val nicknames: Flow<Map<String, String>> = context.store.data.map { p -> parseMap(p[K.nicknames]) }
 
+    /** Bleibt dieses Handy für seine Helfer erreichbar, obwohl gerade der Helfer-Modus aktiv ist? */
+    val keepClient: Flow<Boolean> = context.store.data.map { it[K.keepClient] ?: false }
+
     suspend fun setRole(role: Role?) = edit { if (role == null) it.remove(K.role) else it[K.role] = role.name }
     suspend fun setHelperName(name: String) = edit { it[K.helperName] = name.trim() }
     suspend fun setAutoAccept(v: Boolean) = edit { it[K.autoAccept] = v }
     suspend fun setAutoConfirm(v: Boolean) = edit { it[K.autoConfirm] = v }
+    suspend fun setKeepClient(v: Boolean) = edit { it[K.keepClient] = v }
     suspend fun setNickname(deviceId: String, name: String) = edit {
         val m = parseMap(it[K.nicknames]).toMutableMap()
         if (name.isBlank()) m.remove(deviceId) else m[deviceId] = name.trim()
@@ -41,6 +46,9 @@ class Prefs(private val context: Context) {
     }
 
     suspend fun roleNow() = role.first()
+
+    /** Soll die Bereitschaft (ClientService) laufen? */
+    suspend fun clientWantedNow() = roleNow() == Role.CLIENT || keepClient.first()
     suspend fun helperNameNow() = helperName.first()
     suspend fun autoAcceptNow() = autoAccept.first()
     suspend fun autoConfirmNow() = autoConfirm.first()

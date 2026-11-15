@@ -59,7 +59,7 @@ import kotlinx.coroutines.launch
 
 /** Startbildschirm auf dem Handy, das Hilfe bekommt – bewusst groß und einfach. */
 @Composable
-fun ClientHome(onResetRole: () -> Unit) {
+fun ClientHome(onResetRole: () -> Unit, onSwitchToHelper: () -> Unit) {
     val ctx = LocalContext.current
     var refresh by remember { mutableIntStateOf(0) }
     LifecycleResumeEffect(Unit) {
@@ -117,6 +117,7 @@ fun ClientHome(onResetRole: () -> Unit) {
         onDismiss = { showSettings = false },
         onAddHelper = { showSettings = false; showCode = true; ClientService.requestNewPairCode(ctx) },
         onResetRole = onResetRole,
+        onSwitchToHelper = { showSettings = false; onSwitchToHelper() },
     )
 }
 
@@ -261,13 +262,19 @@ private fun Step(
 }
 
 @Composable
-private fun ClientSettings(onDismiss: () -> Unit, onAddHelper: () -> Unit, onResetRole: () -> Unit) {
+private fun ClientSettings(
+    onDismiss: () -> Unit,
+    onAddHelper: () -> Unit,
+    onResetRole: () -> Unit,
+    onSwitchToHelper: () -> Unit,
+) {
     val ctx = LocalContext.current
     val prefs = remember { Prefs(ctx) }
     val scope = rememberCoroutineScope()
     val autoAccept by prefs.autoAccept.collectAsState(initial = true)
     val autoConfirm by prefs.autoConfirm.collectAsState(initial = true)
     var confirmReset by remember { mutableStateOf(false) }
+    var confirmSwitch by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -287,6 +294,7 @@ private fun ClientSettings(onDismiss: () -> Unit, onAddHelper: () -> Unit, onRes
                 )
                 HorizontalDivider()
                 TextButton(onClick = onAddHelper) { Text("Weiteren Helfer hinzufügen") }
+                TextButton(onClick = { confirmSwitch = true }) { Text("Selbst jemandem helfen") }
                 TextButton(onClick = { confirmReset = true }) {
                     Text("App zurücksetzen", color = MaterialTheme.colorScheme.error)
                 }
@@ -299,5 +307,17 @@ private fun ClientSettings(onDismiss: () -> Unit, onAddHelper: () -> Unit, onRes
         text = { Text("Danach muss die App neu eingerichtet werden.") },
         confirmButton = { TextButton(onClick = { confirmReset = false; onDismiss(); onResetRole() }) { Text("Zurücksetzen") } },
         dismissButton = { TextButton(onClick = { confirmReset = false }) { Text("Abbrechen") } },
+    )
+    if (confirmSwitch) AlertDialog(
+        onDismissRequest = { confirmSwitch = false },
+        title = { Text("Selbst jemandem helfen?") },
+        text = {
+            Text(
+                "Die App wechselt in den Helfer-Modus. Deine Helfer können dir trotzdem weiterhin helfen.\n\n" +
+                    "Zurück geht es im Helfer-Modus oben rechts über ⋮ → „Selbst Hilfe bekommen“."
+            )
+        },
+        confirmButton = { TextButton(onClick = { confirmSwitch = false; onSwitchToHelper() }) { Text("Wechseln") } },
+        dismissButton = { TextButton(onClick = { confirmSwitch = false }) { Text("Abbrechen") } },
     )
 }

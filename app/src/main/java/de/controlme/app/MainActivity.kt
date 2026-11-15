@@ -54,12 +54,24 @@ class MainActivity : ComponentActivity() {
                     val resetRole: () -> Unit = {
                         scope.launch {
                             stopService(android.content.Intent(this@MainActivity, ClientService::class.java))
+                            prefs.setKeepClient(false)
                             prefs.setRole(null)
                         }
                     }
+                    // Moduswechsel ohne Zurücksetzen: Kopplungen bleiben erhalten.
+                    // Ein Handy, das Hilfe bekommt, bleibt auch im Helfer-Modus erreichbar.
+                    val switchToHelper: () -> Unit = {
+                        scope.launch {
+                            prefs.setKeepClient(true)
+                            prefs.setRole(Role.HELPER)
+                        }
+                    }
+                    val switchToClient: () -> Unit = {
+                        scope.launch { prefs.setRole(Role.CLIENT) }
+                    }
                     when (role) {
                         null -> RoleScreen { picked -> scope.launch { prefs.setRole(picked) } }
-                        Role.CLIENT -> ClientHome(onResetRole = resetRole)
+                        Role.CLIENT -> ClientHome(onResetRole = resetRole, onSwitchToHelper = switchToHelper)
                         Role.HELPER -> {
                             val current = session
                             when {
@@ -76,6 +88,7 @@ class MainActivity : ComponentActivity() {
                                         s.start()
                                     },
                                     onResetRole = resetRole,
+                                    onSwitchToClient = switchToClient,
                                 )
                             }
                         }
